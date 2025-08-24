@@ -5,13 +5,11 @@ type Page = 'HOME' | 'SERVICES' | 'DATETIME' | 'USER_INFO' | 'CONFIRM' | 'SUCCES
 type ModalType = 'PORTFOLIO' | 'CONTACT';
 
 interface Service { id: string; name: string; price: number; }
-interface PedicureOption { id: string; name: string; price: number; }
 interface UserInfo { name: string; phone: string; }
 
 interface BookingState {
   currentPage: Page;
   selectedServices: Map<string, number>;
-  selectedPedicureOption: string | null;
   selectedDate: string;
   selectedTime: string;
   userInfo: UserInfo;
@@ -19,15 +17,9 @@ interface BookingState {
 
 // --- Constants ---
 const SERVICES: Service[] = [
-  { id: 'manicure', name: 'Manicure', price: 30 },
-  { id: 'pedicure', name: 'Pedicure', price: 0 },
-  { id: 'spa', name: 'Spar dos Pés', price: 50 },
-];
-
-const PEDICURE_OPTIONS: PedicureOption[] = [
-    { id: 'pedicure_completo', name: 'Cutilagem e Esmaltação (Completo)', price: 40 },
-    { id: 'pedicure_cutilagem', name: 'Apenas Cutilagem', price: 25 },
-    { id: 'pedicure_esmalte', name: 'Apenas Esmaltação', price: 20 },
+  { id: 'manicure', name: 'Manicure', price: 20 },
+  { id: 'pedicure', name: 'Pedicure', price: 20 },
+  { id: 'spa', name: 'Spa dos Pés', price: 35 },
 ];
 
 // --- Custom Hook for LocalStorage ---
@@ -73,7 +65,6 @@ const App: React.FC = () => {
   const [bookingState, setBookingState] = usePersistentState<BookingState>('bookingState', {
     currentPage: 'HOME',
     selectedServices: new Map<string, number>(),
-    selectedPedicureOption: null,
     selectedDate: '',
     selectedTime: '',
     userInfo: { name: '', phone: '' },
@@ -81,7 +72,7 @@ const App: React.FC = () => {
 
   const [activeModal, setActiveModal] = useState<ModalType | null>(null);
   
-  const { currentPage, selectedServices, selectedPedicureOption } = bookingState;
+  const { currentPage, selectedServices } = bookingState;
 
   const updateState = (updates: Partial<BookingState>) => {
     setBookingState(prev => ({ ...prev, ...updates }));
@@ -89,30 +80,14 @@ const App: React.FC = () => {
 
   const handleServiceToggle = (serviceId: string, price: number) => {
     const newSelection = new Map(selectedServices);
-    let newPedicureOption = selectedPedicureOption;
     if (newSelection.has(serviceId)) {
       newSelection.delete(serviceId);
-      if (serviceId === 'pedicure') {
-        newPedicureOption = null;
-        PEDICURE_OPTIONS.forEach(opt => newSelection.delete(opt.id));
-      }
     } else {
       newSelection.set(serviceId, price);
-      if (serviceId === 'pedicure') {
-        newPedicureOption = PEDICURE_OPTIONS[0].id;
-        newSelection.set(PEDICURE_OPTIONS[0].id, PEDICURE_OPTIONS[0].price);
-      }
     }
-    updateState({ selectedServices: newSelection, selectedPedicureOption: newPedicureOption });
+    updateState({ selectedServices: newSelection });
   };
   
-  const handlePedicureOptionChange = (optionId: string, price: number) => {
-    const newSelection = new Map(selectedServices);
-    PEDICURE_OPTIONS.forEach(opt => newSelection.delete(opt.id));
-    newSelection.set(optionId, price);
-    updateState({ selectedServices: newSelection, selectedPedicureOption: optionId });
-  };
-
   const totalCost = useMemo(() => {
     let total = 0;
     selectedServices.forEach(price => total += price);
@@ -124,7 +99,6 @@ const App: React.FC = () => {
     setBookingState({
       currentPage: 'HOME',
       selectedServices: new Map(),
-      selectedPedicureOption: null,
       selectedDate: '',
       selectedTime: '',
       userInfo: { name: '', phone: '' },
@@ -137,7 +111,7 @@ const App: React.FC = () => {
   const renderPage = () => {
     switch (currentPage) {
       case 'HOME': return <HomePage onNext={() => updateState({ currentPage: 'SERVICES' })} onModalOpen={setActiveModal} />;
-      case 'SERVICES': return <ServicesPage bookingState={bookingState} onServiceToggle={handleServiceToggle} onPedicureOptionChange={handlePedicureOptionChange} onNext={() => updateState({ currentPage: 'DATETIME' })} onBack={() => updateState({ currentPage: 'HOME' })} />;
+      case 'SERVICES': return <ServicesPage bookingState={bookingState} onServiceToggle={handleServiceToggle} onNext={() => updateState({ currentPage: 'DATETIME' })} onBack={() => updateState({ currentPage: 'HOME' })} />;
       case 'DATETIME': return <DateTimePage bookingState={bookingState} updateState={updateState} onNext={() => updateState({ currentPage: 'USER_INFO' })} onBack={() => updateState({ currentPage: 'SERVICES' })} />;
       case 'USER_INFO': return <UserInfoPage bookingState={bookingState} updateState={updateState} onNext={() => updateState({ currentPage: 'CONFIRM' })} onBack={() => updateState({ currentPage: 'DATETIME' })} />;
       case 'CONFIRM': return <ConfirmationPage bookingState={bookingState} totalCost={totalCost} onConfirm={() => updateState({ currentPage: 'SUCCESS' })} onBack={() => updateState({ currentPage: 'USER_INFO' })} />;
@@ -195,7 +169,7 @@ const HomePage: React.FC<HomePageProps> = ({ onNext, onModalOpen }) => (
       <p>Pedicure & Manicure</p>
     </header>
     <p style={{ textAlign: 'center', marginBottom: '1rem' }}>
-      Bem-vinda ao seu espaço de beleza e cuidado. Agende seu horário com facilidade.
+      Bem-vinda ao seu espaço de beleza e cuidado.
     </p>
     <button onClick={onNext} className="cta-button">Agendar Agora</button>
     <div className="home-actions">
@@ -208,12 +182,11 @@ const HomePage: React.FC<HomePageProps> = ({ onNext, onModalOpen }) => (
 interface ServicesPageProps {
   bookingState: BookingState;
   onServiceToggle: (id: string, price: number) => void;
-  onPedicureOptionChange: (id: string, price: number) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
-const ServicesPage: React.FC<ServicesPageProps> = ({ bookingState, onServiceToggle, onPedicureOptionChange, onNext, onBack }) => (
+const ServicesPage: React.FC<ServicesPageProps> = ({ bookingState, onServiceToggle, onNext, onBack }) => (
   <div className="page">
     <header className="header">
       <h2>Nossos Serviços</h2>
@@ -230,24 +203,9 @@ const ServicesPage: React.FC<ServicesPageProps> = ({ bookingState, onServiceTogg
           >
             <div className="service-card-header">
               <h3>{service.name}</h3>
-              {service.id !== 'pedicure' && <span>R$ {service.price.toFixed(2)}</span>}
+              <span>R$ {service.price.toFixed(2)}</span>
             </div>
           </div>
-          {service.id === 'pedicure' && bookingState.selectedServices.has('pedicure') && (
-            <div className="service-options">
-                {PEDICURE_OPTIONS.map(opt => (
-                    <label key={opt.id}>
-                        <input 
-                            type="radio" 
-                            name="pedicureOption"
-                            checked={bookingState.selectedPedicureOption === opt.id}
-                            onChange={() => onPedicureOptionChange(opt.id, opt.price)}
-                        />
-                        {opt.name} - R$ {opt.price.toFixed(2)}
-                    </label>
-                ))}
-            </div>
-          )}
         </div>
       ))}
     </div>
@@ -269,7 +227,7 @@ const DateTimePage: React.FC<DateTimePageProps> = ({ bookingState, updateState, 
     const { selectedDate, selectedTime } = bookingState;
     const [dateError, setDateError] = useState('');
     const timeSlots = ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
-    const disabledSlots = useMemo(() => new Set(["11:00", "15:00"]), []);
+    const disabledSlots = useMemo(() => new Set(["11:00"]), []);
 
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const date = new Date(e.target.value + "T00:00:00");
@@ -381,15 +339,32 @@ interface ConfirmationPageProps {
 const ConfirmationPage: React.FC<ConfirmationPageProps> = ({ bookingState, totalCost, onConfirm, onBack }) => {
     const { selectedServices, selectedDate, selectedTime, userInfo } = bookingState;
 
-    const serviceNames = Array.from(selectedServices.keys()).map(id => {
-        const service = SERVICES.find(s => s.id === id);
-        if (service && service.id !== 'pedicure') return service.name;
-        const pedicureOption = PEDICURE_OPTIONS.find(p => p.id === id);
-        if (pedicureOption) return `Pedicure (${pedicureOption.name})`;
-        return null;
-    }).filter(Boolean);
+    const serviceNames = Array.from(selectedServices.keys())
+        .map(id => SERVICES.find(s => s.id === id)?.name)
+        .filter(Boolean);
 
     const formattedDate = selectedDate ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
+
+    const handleConfirm = () => {
+        const serviceNamesText = serviceNames.join(', ');
+        const message = encodeURIComponent(
+            `Olá! Gostaria de confirmar meu agendamento na Emille Nails:\n\n` +
+            `*Cliente:* ${userInfo.name}\n` +
+            `*Serviços:* ${serviceNamesText}\n` +
+            `*Data:* ${formattedDate}\n` +
+            `*Horário:* ${selectedTime}\n\n` +
+            `*Total:* R$ ${totalCost.toFixed(2)}`
+        );
+        
+        // IMPORTANTE: Substitua este número pelo WhatsApp da sua empresa
+        const businessWhatsappNumber = "5511999999999"; 
+        
+        const whatsappUrl = `https://wa.me/${businessWhatsappNumber}?text=${message}`;
+        
+        window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+        onConfirm();
+    };
+
 
     return (
         <div className="page confirmation-container">
@@ -408,7 +383,7 @@ const ConfirmationPage: React.FC<ConfirmationPageProps> = ({ bookingState, total
             </div>
             <div className="nav-buttons">
                 <button onClick={onBack} className="nav-button secondary">Voltar</button>
-                <button onClick={onConfirm} className="nav-button">Confirmar Agendamento</button>
+                <button onClick={handleConfirm} className="nav-button">Confirmar e Enviar via WhatsApp</button>
             </div>
         </div>
     )
@@ -418,8 +393,8 @@ const SuccessPage: React.FC<{ onFinish: () => void }> = ({ onFinish }) => (
     <div className="page">
         <div className="success-message">
             <div className="success-icon">💅</div>
-            <h2>Agendado com Sucesso!</h2>
-            <p>Seu horário foi confirmado. Mal podemos esperar para te ver!</p>
+            <h2>Agendamento Realizado!</h2>
+            <p>Seu horário foi salvo. Por favor, envie a mensagem que abrimos no seu WhatsApp para confirmar. Mal podemos esperar para te ver!</p>
         </div>
         <button onClick={onFinish} className="nav-button">Agendar Outro Horário</button>
     </div>
@@ -438,7 +413,13 @@ const PortfolioModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
     <Modal onClose={onClose}>
         <header className="header" style={{marginBottom: "1rem"}}><h2>Nosso Trabalho</h2></header>
         <div className="portfolio-gallery">
-            {[1,2,3,4,5,6].map(i => <img key={i} src={`https://picsum.photos/200/200?random=${i}`} alt={`Exemplo de unha ${i}`} />)}
+            {[1,2,3,4,5].map(i => <img key={i} src={`https://picsum.photos/200/200?random=${i}`} alt={`Exemplo de unha ${i}`} />)}
+            <a href="https://www.instagram.com/emille_unhas?igsh=MXE1cW5jY2txampmMg==" target="_blank" rel="noopener noreferrer" className="instagram-card">
+              <div className="instagram-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+              </div>
+              <span>Ver no Instagram</span>
+            </a>
         </div>
     </Modal>
 );
@@ -447,7 +428,7 @@ const ContactModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
     <Modal onClose={onClose}>
         <header className="header" style={{marginBottom: "1rem"}}><h2>Contato e Endereço</h2></header>
         <div className="contact-info">
-            <p><strong>Endereço:</strong> Rua das Flores, 123 - Bairro Jardim, Cidade - Estado</p>
+            <p><strong>Endereço:</strong> RUA SIQUEIRA CAMPOS - 223 - CENTRO</p>
             <p><strong>WhatsApp:</strong> (11) 98765-4321</p>
             <p><strong>Horário de Funcionamento:</strong><br/>
             Segunda a Sábado: 09:00 - 18:00<br/>
