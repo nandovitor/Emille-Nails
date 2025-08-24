@@ -228,6 +228,13 @@ html, body {
   text-decoration: line-through;
 }
 
+.no-slots-message {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 1rem;
+  color: #777;
+}
+
 .confirmation-summary, .success-message {
   background-color: var(--secondary-color);
   padding: 1.5rem;
