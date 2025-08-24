@@ -1,3 +1,4 @@
+
   import React, { useState, useMemo, useEffect } from 'react';
 
   // --- Type Definitions ---
@@ -434,6 +435,8 @@
 
   const PaymentPage: React.FC<PaymentPageProps> = ({ totalCost, onConfirmAndPay, onBack }) => {
       const [method, setMethod] = useState<'PIX' | 'CARD' | null>(null);
+      const [isProcessing, setIsProcessing] = useState(false);
+      const [paymentError, setPaymentError] = useState('');
 
       const handleCopyPixKey = () => {
           // This is a placeholder BRCode. A real one would be dynamically generated.
@@ -448,8 +451,22 @@
       
       const handlePayWithCard = (e: React.FormEvent) => {
           e.preventDefault();
-          alert("Demonstração: O pagamento com cartão seria processado aqui. Clicando em OK, seu agendamento será confirmado via WhatsApp.");
-          onConfirmAndPay();
+          setPaymentError('');
+          setIsProcessing(true);
+
+          // Simulate API call delay
+          setTimeout(() => {
+              const formData = new FormData(e.target as HTMLFormElement);
+              const cvc = formData.get('cardCVC') as string;
+
+              // Simple validation simulation: fail if CVC is not '123'
+              if (cvc === '123') {
+                  onConfirmAndPay();
+              } else {
+                  setPaymentError('Pagamento recusado. Verifique os dados do cartão ou tente novamente.');
+                  setIsProcessing(false);
+              }
+          }, 2000); // 2-second delay
       };
 
       if (!method) {
@@ -509,7 +526,8 @@
                   </header>
                   <form className="card-form" onSubmit={handlePayWithCard}>
                       <div className="card-form-disclaimer">
-                          <strong>Atenção:</strong> Este é um formulário de demonstração. <strong>Não insira dados reais.</strong>
+                          <strong>Atenção:</strong> Este é um formulário de demonstração. <strong>Não insira dados reais.</strong><br/>
+                          Para simular um pagamento aprovado, use o CVC <strong>123</strong>.
                       </div>
                       <div className="form-group">
                           <label htmlFor="cardNumber">Número do Cartão</label>
@@ -526,12 +544,19 @@
                           </div>
                           <div className="form-group">
                               <label htmlFor="cardCVC">CVC</label>
-                              <input type="text" id="cardCVC" inputMode="numeric" autoComplete="cc-csc" placeholder="123" required />
+                              <input type="text" id="cardCVC" name="cardCVC" inputMode="numeric" autoComplete="cc-csc" placeholder="123" required />
                           </div>
                       </div>
+
+                      {paymentError && <p className="payment-error">{paymentError}</p>}
+
                       <div className="nav-buttons-column">
-                          <button type="submit" className="nav-button">Pagar R$ {totalCost.toFixed(2)}</button>
-                          <button type="button" onClick={() => setMethod(null)} className="nav-button tertiary">Escolher Outro Método</button>
+                          <button type="submit" className="nav-button" disabled={isProcessing}>
+                            {isProcessing ? 'Processando...' : `Pagar R$ ${totalCost.toFixed(2)}`}
+                          </button>
+                          <button type="button" onClick={() => setMethod(null)} className="nav-button tertiary" disabled={isProcessing}>
+                            Escolher Outro Método
+                          </button>
                       </div>
                   </form>
               </div>
