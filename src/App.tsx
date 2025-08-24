@@ -1,7 +1,7 @@
   import React, { useState, useMemo, useEffect } from 'react';
 
   // --- Type Definitions ---
-  type Page = 'HOME' | 'SERVICES' | 'DATETIME' | 'USER_INFO' | 'CONFIRM' | 'SUCCESS';
+  type Page = 'HOME' | 'SERVICES' | 'DATETIME' | 'USER_INFO' | 'CONFIRM' | 'PAYMENT' | 'SUCCESS';
   type ModalType = 'PORTFOLIO' | 'CONTACT';
 
   interface Service { id: string; name: string; price: number; }
@@ -21,6 +21,32 @@
     { id: 'pedicure', name: 'Pedicure', price: 20 },
     { id: 'spa', name: 'Spa dos Pés', price: 35 },
   ];
+  
+  // --- Helper Functions ---
+  const generateWhatsappUrl = (bookingState: BookingState, totalCost: number): string => {
+    const { selectedServices, selectedDate, selectedTime, userInfo } = bookingState;
+
+    const serviceNames = Array.from(selectedServices.keys())
+        .map(id => SERVICES.find(s => s.id === id)?.name)
+        .filter(Boolean);
+
+    const formattedDate = selectedDate ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
+
+    const serviceNamesText = serviceNames.join(', ');
+    const message = encodeURIComponent(
+        `Olá! Gostaria de confirmar meu agendamento na Emille Nails:\n\n` +
+        `*Cliente:* ${userInfo.name}\n` +
+        `*Serviços:* ${serviceNamesText}\n` +
+        `*Data:* ${formattedDate}\n` +
+        `*Horário:* ${selectedTime}\n\n` +
+        `*Total:* R$ ${totalCost.toFixed(2)}`
+    );
+    
+    const businessWhatsappNumber = "5573981067554"; 
+    
+    return `https://wa.me/${businessWhatsappNumber}?text=${message}`;
+  };
+
 
   // --- Custom Hook for LocalStorage ---
   function usePersistentState<T>(key: string, initialState: T): [T, React.Dispatch<React.SetStateAction<T>>] {
@@ -114,7 +140,27 @@
         case 'SERVICES': return <ServicesPage bookingState={bookingState} onServiceToggle={handleServiceToggle} onNext={() => updateState({ currentPage: 'DATETIME' })} onBack={() => updateState({ currentPage: 'HOME' })} />;
         case 'DATETIME': return <DateTimePage bookingState={bookingState} updateState={updateState} onNext={() => updateState({ currentPage: 'USER_INFO' })} onBack={() => updateState({ currentPage: 'SERVICES' })} />;
         case 'USER_INFO': return <UserInfoPage bookingState={bookingState} updateState={updateState} onNext={() => updateState({ currentPage: 'CONFIRM' })} onBack={() => updateState({ currentPage: 'DATETIME' })} />;
-        case 'CONFIRM': return <ConfirmationPage bookingState={bookingState} totalCost={totalCost} onConfirm={() => updateState({ currentPage: 'SUCCESS' })} onBack={() => updateState({ currentPage: 'USER_INFO' })} />;
+        case 'CONFIRM': return <ConfirmationPage 
+            bookingState={bookingState} 
+            totalCost={totalCost} 
+            onConfirmAndPayLater={() => {
+                const url = generateWhatsappUrl(bookingState, totalCost);
+                window.open(url, '_blank', 'noopener,noreferrer');
+                updateState({ currentPage: 'SUCCESS' });
+            }} 
+            onGoToPayment={() => updateState({ currentPage: 'PAYMENT' })}
+            onBack={() => updateState({ currentPage: 'USER_INFO' })} 
+        />;
+        case 'PAYMENT': return <PaymentPage
+            bookingState={bookingState}
+            totalCost={totalCost}
+            onConfirmAndPay={() => {
+                const url = generateWhatsappUrl(bookingState, totalCost);
+                window.open(url, '_blank', 'noopener,noreferrer');
+                updateState({ currentPage: 'SUCCESS' });
+            }}
+            onBack={() => updateState({ currentPage: 'CONFIRM' })}
+        />;
         case 'SUCCESS': return <SuccessPage onFinish={resetBooking} />;
         default: return <HomePage onNext={() => updateState({ currentPage: 'SERVICES' })} onModalOpen={setActiveModal} />;
       }
@@ -335,11 +381,12 @@
   interface ConfirmationPageProps {
     bookingState: BookingState;
     totalCost: number;
-    onConfirm: () => void;
+    onConfirmAndPayLater: () => void;
+    onGoToPayment: () => void;
     onBack: () => void;
   }
 
-  const ConfirmationPage: React.FC<ConfirmationPageProps> = ({ bookingState, totalCost, onConfirm, onBack }) => {
+  const ConfirmationPage: React.FC<ConfirmationPageProps> = ({ bookingState, totalCost, onConfirmAndPayLater, onGoToPayment, onBack }) => {
       const { selectedServices, selectedDate, selectedTime, userInfo } = bookingState;
 
       const serviceNames = Array.from(selectedServices.keys())
@@ -347,27 +394,6 @@
           .filter(Boolean);
 
       const formattedDate = selectedDate ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
-
-      const handleConfirm = () => {
-          const serviceNamesText = serviceNames.join(', ');
-          const message = encodeURIComponent(
-              `Olá! Gostaria de confirmar meu agendamento na Emille Nails:\n\n` +
-              `*Cliente:* ${userInfo.name}\n` +
-              `*Serviços:* ${serviceNamesText}\n` +
-              `*Data:* ${formattedDate}\n` +
-              `*Horário:* ${selectedTime}\n\n` +
-              `*Total:* R$ ${totalCost.toFixed(2)}`
-          );
-          
-          // IMPORTANTE: Substitua este número pelo WhatsApp da sua empresa
-          const businessWhatsappNumber = "5573981067554"; 
-          
-          const whatsappUrl = `https://wa.me/${businessWhatsappNumber}?text=${message}`;
-          
-          window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-          onConfirm();
-      };
-
 
       return (
           <div className="page confirmation-container">
@@ -384,12 +410,135 @@
                   <p><strong>Horário:</strong> {selectedTime}</p>
                   <p><strong>Total:</strong> R$ {totalCost.toFixed(2)}</p>
               </div>
-              <div className="nav-buttons">
-                  <button onClick={onBack} className="nav-button secondary">Voltar</button>
-                  <button onClick={handleConfirm} className="nav-button">Confirmar e Enviar via WhatsApp</button>
+              
+              <div className="payment-prompt">
+                  <h4>Deseja efetuar o pagamento antecipado?</h4>
+                  <p>Pague agora para agilizar seu atendimento ou pague no local.</p>
+              </div>
+
+              <div className="nav-buttons-column">
+                  <button onClick={onGoToPayment} className="nav-button">Pagar Agora</button>
+                  <button onClick={onConfirmAndPayLater} className="nav-button secondary">Pagar no Local e Enviar Confirmação</button>
+                  <button onClick={onBack} className="nav-button tertiary">Voltar</button>
               </div>
           </div>
       )
+  };
+
+  interface PaymentPageProps {
+    bookingState: BookingState;
+    totalCost: number;
+    onConfirmAndPay: () => void;
+    onBack: () => void;
+  }
+
+  const PaymentPage: React.FC<PaymentPageProps> = ({ totalCost, onConfirmAndPay, onBack }) => {
+      const [method, setMethod] = useState<'PIX' | 'CARD' | null>(null);
+
+      const handleCopyPixKey = () => {
+          // This is a placeholder BRCode. A real one would be dynamically generated.
+          const pixKey = "00020126580014br.gov.bcb.pix013668ab538f-4e3f-459a-9970-5210eaa6d6495204000053039865802BR5913EMILLE NAILS6009SAO PAULO62070503***6304E2C2";
+          navigator.clipboard.writeText(pixKey).then(() => {
+              alert('Código PIX (copia e cola) copiado para a área de transferência!');
+          }).catch(err => {
+              console.error('Falha ao copiar a chave PIX: ', err);
+              alert('Não foi possível copiar o código PIX.');
+          });
+      };
+      
+      const handlePayWithCard = (e: React.FormEvent) => {
+          e.preventDefault();
+          alert("Demonstração: O pagamento com cartão seria processado aqui. Clicando em OK, seu agendamento será confirmado via WhatsApp.");
+          onConfirmAndPay();
+      };
+
+      if (!method) {
+          return (
+              <div className="page payment-page">
+                  <header className="header">
+                      <h2>Pagamento Antecipado</h2>
+                      <p>Total: <strong>R$ {totalCost.toFixed(2)}</strong></p>
+                  </header>
+                  <p style={{textAlign: 'center', marginBottom: '1.5rem'}}>Escolha sua forma de pagamento preferida.</p>
+                  <div className="payment-options">
+                      <button className="nav-button" onClick={() => setMethod('PIX')}>Pagar com PIX</button>
+                      <button className="nav-button" onClick={() => setMethod('CARD')}>Pagar com Cartão de Crédito</button>
+                  </div>
+                  <div className="nav-buttons">
+                      <button onClick={onBack} className="nav-button secondary">Voltar para Resumo</button>
+                  </div>
+              </div>
+          );
+      }
+
+      if (method === 'PIX') {
+          const pixUrl = "https://nubank.com.br/cobrar/185dar/68ab538f-4e3f-459a-9970-5210eaa6d649";
+          return (
+              <div className="page payment-page">
+                  <header className="header">
+                      <h2>Pagar com PIX</h2>
+                      <p>Total: <strong>R$ {totalCost.toFixed(2)}</strong></p>
+                  </header>
+                  <div className="pix-details">
+                      <p>Abra o app do seu banco e escaneie o código abaixo para pagar.</p>
+                      <a href={pixUrl} target="_blank" rel="noopener noreferrer">
+                          <img 
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pixUrl)}`}
+                              alt="QR Code para pagamento PIX" 
+                              className="pix-qr-code"
+                          />
+                      </a>
+                      <p style={{marginTop: '1rem', marginBottom: '0.5rem'}}>Ou use o PIX Copia e Cola:</p>
+                      <button className="nav-button secondary" onClick={handleCopyPixKey}>Copiar Código PIX</button>
+                  </div>
+
+                  <div className="nav-buttons-column">
+                    <button onClick={onConfirmAndPay} className="nav-button">Já Paguei, Enviar Confirmação</button>
+                    <button onClick={() => setMethod(null)} className="nav-button tertiary">Escolher Outro Método</button>
+                  </div>
+              </div>
+          );
+      }
+      
+      if (method === 'CARD') {
+          return (
+              <div className="page payment-page">
+                  <header className="header">
+                      <h2>Pagar com Cartão de Crédito</h2>
+                      <p>Total: <strong>R$ {totalCost.toFixed(2)}</strong></p>
+                  </header>
+                  <form className="card-form" onSubmit={handlePayWithCard}>
+                      <div className="card-form-disclaimer">
+                          <strong>Atenção:</strong> Este é um formulário de demonstração. <strong>Não insira dados reais.</strong>
+                      </div>
+                      <div className="form-group">
+                          <label htmlFor="cardNumber">Número do Cartão</label>
+                          <input type="text" id="cardNumber" inputMode="numeric" pattern="[\d ]{16,22}" autoComplete="cc-number" placeholder="0000 0000 0000 0000" required />
+                      </div>
+                      <div className="form-group">
+                          <label htmlFor="cardName">Nome no Cartão</label>
+                          <input type="text" id="cardName" autoComplete="cc-name" placeholder="Seu nome como no cartão" required />
+                      </div>
+                      <div className="form-row">
+                          <div className="form-group">
+                              <label htmlFor="cardExpiry">Validade</label>
+                              <input type="text" id="cardExpiry" autoComplete="cc-exp" placeholder="MM/AA" required />
+                          </div>
+                          <div className="form-group">
+                              <label htmlFor="cardCVC">CVC</label>
+                              <input type="text" id="cardCVC" inputMode="numeric" autoComplete="cc-csc" placeholder="123" required />
+                          </div>
+                      </div>
+                      <div className="nav-buttons-column">
+                          <button type="submit" className="nav-button">Pagar R$ {totalCost.toFixed(2)}</button>
+                          <button type="button" onClick={() => setMethod(null)} className="nav-button tertiary">Escolher Outro Método</button>
+                      </div>
+                  </form>
+              </div>
+          );
+      }
+      
+      return null;
   };
 
   const SuccessPage: React.FC<{ onFinish: () => void }> = ({ onFinish }) => (
