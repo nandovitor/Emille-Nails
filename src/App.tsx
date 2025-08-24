@@ -360,7 +360,7 @@ const ConfirmationPage: React.FC<ConfirmationPageProps> = ({ bookingState, total
         );
         
         // IMPORTANTE: Substitua este número pelo WhatsApp da sua empresa
-        const businessWhatsappNumber = "5511999999999"; 
+        const businessWhatsappNumber = "5573981067554"; 
         
         const whatsappUrl = `https://wa.me/${businessWhatsappNumber}?text=${message}`;
         
