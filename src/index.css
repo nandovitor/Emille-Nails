@@ -498,6 +498,7 @@ html, body {
     border-radius: var(--border-radius);
     text-align: center;
     font-size: 0.9rem;
+    line-height: 1.5;
 }
 
 .form-row {
@@ -506,4 +507,14 @@ html, body {
 }
 .form-row .form-group {
     flex: 1;
+}
+
+.payment-error {
+    color: var(--error-color);
+    font-size: 0.9rem;
+    text-align: center;
+    background-color: #f8d7da;
+    padding: 0.75rem;
+    border-radius: var(--border-radius);
+    border: 1px solid #f5c6cb;
 }
