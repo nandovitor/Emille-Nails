@@ -8,8 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({ 
       registerType: 'autoUpdate',
-      // Este manifesto é a fonte da verdade para o PWA.
-      // Ele será injetado no HTML e usado para gerar o manifest.webmanifest.
+      includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
         short_name: "Emille Nails",
         name: "Emille Nails: Agendamento de Pedicure e Manicure",
