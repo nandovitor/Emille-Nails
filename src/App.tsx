@@ -5,8 +5,9 @@
   type Page = 'HOME' | 'SERVICES' | 'DATETIME' | 'USER_INFO' | 'CONFIRM' | 'PAYMENT' | 'SUCCESS';
   type ModalType = 'PORTFOLIO' | 'CONTACT';
 
-  interface Service { id: string; name: string; price: number; }
+  interface Service { id: string; name: string; price: number; duration: number; } // duration in minutes
   interface UserInfo { name: string; phone: string; }
+  interface Booking { date: string; startTime: string; duration: number; }
 
   interface BookingState {
     currentPage: Page;
@@ -18,9 +19,10 @@
 
   // --- Constants ---
   const SERVICES: Service[] = [
-    { id: 'manicure', name: 'Manicure', price: 20 },
-    { id: 'pedicure', name: 'Pedicure', price: 20 },
-    { id: 'spa', name: 'Spa dos Pés', price: 35 },
+    { id: 'manicure', name: 'Manicure', price: 20, duration: 60 },
+    { id: 'pedicure', name: 'Pedicure', price: 20, duration: 60 },
+    { id: 'manicure_pedicure', name: 'Manicure + Pedicure', price: 40, duration: 120 },
+    { id: 'spa', name: 'Spa dos Pés', price: 35, duration: 60 },
   ];
   
   // --- Helper Functions ---
@@ -96,7 +98,7 @@
       selectedTime: '',
       userInfo: { name: '', phone: '' },
     });
-
+    const [bookings, setBookings] = usePersistentState<Booking[]>('bookings', []);
     const [activeModal, setActiveModal] = useState<ModalType | null>(null);
     
     const { currentPage, selectedServices } = bookingState;
@@ -106,19 +108,38 @@
     };
 
     const handleServiceToggle = (serviceId: string, price: number) => {
-      const newSelection = new Map(selectedServices);
-      if (newSelection.has(serviceId)) {
-        newSelection.delete(serviceId);
-      } else {
-        newSelection.set(serviceId, price);
-      }
-      updateState({ selectedServices: newSelection });
+        const newSelection = new Map(selectedServices);
+        if (newSelection.has(serviceId)) {
+            newSelection.delete(serviceId);
+        } else {
+            newSelection.set(serviceId, price);
+            // Handle mutual exclusivity
+            if (serviceId === 'manicure_pedicure') {
+                newSelection.delete('manicure');
+                newSelection.delete('pedicure');
+            } else if (serviceId === 'manicure' || serviceId === 'pedicure') {
+                newSelection.delete('manicure_pedicure');
+            }
+        }
+        // Reset time selection when services change as duration might change
+        updateState({ selectedServices: newSelection, selectedTime: '' });
     };
     
     const totalCost = useMemo(() => {
       let total = 0;
       selectedServices.forEach(price => total += price);
       return total;
+    }, [selectedServices]);
+
+    const totalDuration = useMemo(() => {
+        let duration = 0;
+        selectedServices.forEach((_price, serviceId) => {
+            const service = SERVICES.find(s => s.id === serviceId);
+            if (service) {
+                duration += service.duration;
+            }
+        });
+        return duration;
     }, [selectedServices]);
 
     const resetBooking = () => {
@@ -132,6 +153,19 @@
       });
     };
 
+    const handleConfirmBooking = () => {
+        const newBooking: Booking = {
+            date: bookingState.selectedDate,
+            startTime: bookingState.selectedTime,
+            duration: totalDuration,
+        };
+        setBookings(prev => [...prev, newBooking]);
+
+        const url = generateWhatsappUrl(bookingState, totalCost);
+        window.open(url, '_blank', 'noopener,noreferrer');
+        updateState({ currentPage: 'SUCCESS' });
+    };
+
     const pages: Page[] = ['SERVICES', 'DATETIME', 'USER_INFO', 'CONFIRM'];
     const currentPageIndex = pages.indexOf(currentPage);
 
@@ -139,27 +173,19 @@
       switch (currentPage) {
         case 'HOME': return <HomePage onNext={() => updateState({ currentPage: 'SERVICES' })} onModalOpen={setActiveModal} />;
         case 'SERVICES': return <ServicesPage bookingState={bookingState} onServiceToggle={handleServiceToggle} onNext={() => updateState({ currentPage: 'DATETIME' })} onBack={() => updateState({ currentPage: 'HOME' })} />;
-        case 'DATETIME': return <DateTimePage bookingState={bookingState} updateState={updateState} onNext={() => updateState({ currentPage: 'USER_INFO' })} onBack={() => updateState({ currentPage: 'SERVICES' })} />;
+        case 'DATETIME': return <DateTimePage bookingState={bookingState} updateState={updateState} onNext={() => updateState({ currentPage: 'USER_INFO' })} onBack={() => updateState({ currentPage: 'SERVICES' })} totalDuration={totalDuration} bookings={bookings} />;
         case 'USER_INFO': return <UserInfoPage bookingState={bookingState} updateState={updateState} onNext={() => updateState({ currentPage: 'CONFIRM' })} onBack={() => updateState({ currentPage: 'DATETIME' })} />;
         case 'CONFIRM': return <ConfirmationPage 
             bookingState={bookingState} 
             totalCost={totalCost} 
-            onConfirmAndPayLater={() => {
-                const url = generateWhatsappUrl(bookingState, totalCost);
-                window.open(url, '_blank', 'noopener,noreferrer');
-                updateState({ currentPage: 'SUCCESS' });
-            }} 
+            onConfirmAndPayLater={handleConfirmBooking} 
             onGoToPayment={() => updateState({ currentPage: 'PAYMENT' })}
             onBack={() => updateState({ currentPage: 'USER_INFO' })} 
         />;
         case 'PAYMENT': return <PaymentPage
             bookingState={bookingState}
             totalCost={totalCost}
-            onConfirmAndPay={() => {
-                const url = generateWhatsappUrl(bookingState, totalCost);
-                window.open(url, '_blank', 'noopener,noreferrer');
-                updateState({ currentPage: 'SUCCESS' });
-            }}
+            onConfirmAndPay={handleConfirmBooking}
             onBack={() => updateState({ currentPage: 'CONFIRM' })}
         />;
         case 'SUCCESS': return <SuccessPage onFinish={resetBooking} />;
@@ -271,13 +297,62 @@
     updateState: (updates: Partial<BookingState>) => void;
     onNext: () => void;
     onBack: () => void;
+    totalDuration: number;
+    bookings: Booking[];
   }
 
-  const DateTimePage: React.FC<DateTimePageProps> = ({ bookingState, updateState, onNext, onBack }) => {
+  const timeToMinutes = (time: string): number => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return hours * 60 + minutes;
+  };
+
+  const minutesToTime = (minutes: number): string => {
+      const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+      const m = (minutes % 60).toString().padStart(2, '0');
+      return `${h}:${m}`;
+  };
+
+  const DateTimePage: React.FC<DateTimePageProps> = ({ bookingState, updateState, onNext, onBack, totalDuration, bookings }) => {
       const { selectedDate, selectedTime } = bookingState;
       const [dateError, setDateError] = useState('');
-      const timeSlots = ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
-      const disabledSlots = useMemo(() => new Set(["11:00"]), []);
+
+      const timeSlots = useMemo(() => {
+        if (!selectedDate || totalDuration === 0) return [];
+
+        const WORK_DAY_START_MINS = 7 * 60; // 07:00
+        const WORK_DAY_END_MINS = 18 * 60; // 18:00
+        const SLOT_INTERVAL_MINS = 30; // Check for a new slot every 30 minutes
+
+        const bookingsOnDate = bookings.filter(b => b.date === selectedDate).map(b => {
+          const start = timeToMinutes(b.startTime);
+          return { start, end: start + b.duration };
+        });
+
+        const availableSlots: string[] = [];
+        for (let slotStart = WORK_DAY_START_MINS; slotStart < WORK_DAY_END_MINS; slotStart += SLOT_INTERVAL_MINS) {
+            const slotEnd = slotStart + totalDuration;
+
+            if (slotEnd > WORK_DAY_END_MINS) {
+                break; // This and subsequent slots won't fit in the workday
+            }
+            
+            const isOverlapping = bookingsOnDate.some(booking => 
+                (slotStart < booking.end && slotEnd > booking.start)
+            );
+
+            if (!isOverlapping) {
+                availableSlots.push(minutesToTime(slotStart));
+            }
+        }
+        return availableSlots;
+      }, [selectedDate, totalDuration, bookings]);
+
+      // If the selected time is no longer available (e.g., due to a change in date or services), reset it.
+      useEffect(() => {
+          if (selectedTime && !timeSlots.includes(selectedTime)) {
+              updateState({ selectedTime: '' });
+          }
+      }, [timeSlots, selectedTime, updateState]);
 
       const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           const date = new Date(e.target.value + "T00:00:00");
@@ -294,6 +369,7 @@
               <header className="header">
                   <h2>Data e Hora</h2>
                   <p>Escolha o melhor dia e horário para você.</p>
+                  {totalDuration > 0 && <p>Duração total: <strong>{Math.floor(totalDuration/60)}h {totalDuration % 60}min</strong></p>}
               </header>
               <div className="form-group">
                   <label htmlFor="date-picker">Data</label>
@@ -309,21 +385,21 @@
               <div className="form-group">
                   <label>Horário</label>
                   <div className="time-slots">
-                      {timeSlots.map(time => {
-                          const isDisabled = disabledSlots.has(time);
-                          return (
-                              <div 
-                                  key={time}
-                                  className={`time-slot ${selectedTime === time ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
-                                  onClick={() => !isDisabled && updateState({ selectedTime: time })}
-                                  role="button"
-                                  aria-pressed={selectedTime === time}
-                                  aria-disabled={isDisabled}
-                              >
-                                  {time}
-                              </div>
-                          )
-                      })}
+                      {timeSlots.length > 0 ? timeSlots.map(time => (
+                          <div 
+                              key={time}
+                              className={`time-slot ${selectedTime === time ? 'selected' : ''}`}
+                              onClick={() => updateState({ selectedTime: time })}
+                              role="button"
+                              aria-pressed={selectedTime === time}
+                          >
+                              {time}
+                          </div>
+                      )) : (
+                        <p className="no-slots-message">
+                            {selectedDate ? "Nenhum horário disponível para esta data com os serviços selecionados." : "Por favor, selecione uma data."}
+                        </p>
+                      )}
                   </div>
               </div>
               <div className="nav-buttons">
