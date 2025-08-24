@@ -438,17 +438,6 @@
       const [isProcessing, setIsProcessing] = useState(false);
       const [paymentError, setPaymentError] = useState('');
 
-      const handleCopyPixKey = () => {
-          // This is a placeholder BRCode. A real one would be dynamically generated.
-          const pixKey = "00020126580014br.gov.bcb.pix013668ab538f-4e3f-459a-9970-5210eaa6d6495204000053039865802BR5913EMILLE NAILS6009SAO PAULO62070503***6304E2C2";
-          navigator.clipboard.writeText(pixKey).then(() => {
-              alert('Código PIX (copia e cola) copiado para a área de transferência!');
-          }).catch(err => {
-              console.error('Falha ao copiar a chave PIX: ', err);
-              alert('Não foi possível copiar o código PIX.');
-          });
-      };
-      
       const handlePayWithCard = (e: React.FormEvent) => {
           e.preventDefault();
           setPaymentError('');
@@ -505,8 +494,6 @@
                               className="pix-qr-code"
                           />
                       </a>
-                      <p style={{marginTop: '1rem', marginBottom: '0.5rem'}}>Ou use o PIX Copia e Cola:</p>
-                      <button className="nav-button secondary" onClick={handleCopyPixKey}>Copiar Código PIX</button>
                   </div>
 
                   <div className="nav-buttons-column">
