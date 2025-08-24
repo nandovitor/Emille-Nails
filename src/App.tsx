@@ -81,7 +81,7 @@ const App: React.FC = () => {
 
   const [activeModal, setActiveModal] = useState<ModalType | null>(null);
   
-  const { currentPage, selectedServices, selectedPedicureOption, selectedDate, selectedTime, userInfo } = bookingState;
+  const { currentPage, selectedServices, selectedPedicureOption } = bookingState;
 
   const updateState = (updates: Partial<BookingState>) => {
     setBookingState(prev => ({ ...prev, ...updates }));
