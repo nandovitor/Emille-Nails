@@ -263,6 +263,30 @@ html, body {
   border: 2px solid var(--accent-color);
 }
 
+.nav-buttons-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.nav-buttons-column .nav-button {
+  margin-top: 0;
+}
+
+.nav-button.tertiary {
+  background: none;
+  color: #888;
+  border: none;
+  box-shadow: none;
+}
+.nav-button.tertiary:hover {
+  background: var(--secondary-color);
+  color: var(--text-color);
+  transform: none;
+}
+
+
 .success-icon {
   font-size: 4rem;
   color: var(--accent-color);
@@ -408,4 +432,78 @@ html, body {
 
 .instagram-card .instagram-icon svg {
     color: var(--white-color);
+}
+
+/* Payment Page Styles */
+.payment-prompt {
+    text-align: center;
+    padding: 1rem;
+    background-color: var(--secondary-color);
+    border-radius: var(--border-radius);
+    margin: 1rem 0 0;
+}
+.payment-prompt h4 {
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+.payment-prompt p {
+    font-size: 0.9rem;
+    color: #555;
+    line-height: 1.5;
+}
+
+.payment-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.payment-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.pix-details {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.5rem;
+    background-color: var(--secondary-color);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+}
+
+.pix-qr-code {
+    max-width: 200px;
+    width: 100%;
+    height: auto;
+    border-radius: var(--border-radius);
+    margin: 1rem 0;
+    border: 1px solid #ddd;
+}
+
+.card-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.card-form-disclaimer {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+}
+.form-row .form-group {
+    flex: 1;
 }
